@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "440347985125",
+    "project_id": "dressup-e9e5a",
+    "storage_bucket": "dressup-e9e5a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:440347985125:android:0670f1e3153c4521d4400c",
+        "android_client_info": {
+          "package_name": "com.example.dress_up"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "440347985125-c5jvp9q00bo5opcervau2feqi2om2ulh.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD5ksumCHCeK5kjd3Ttworbdx2XmIkdc9g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "440347985125-c5jvp9q00bo5opcervau2feqi2om2ulh.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

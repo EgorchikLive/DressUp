@@ -1,0 +1,462 @@
+import 'package:dress_up/models/product';
+import 'package:dress_up/services/FavoritesService.dart';
+import 'package:dress_up/services/cart_service.dart';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../screens/auth/auth_provider.dart';
+
+class ProductScreen extends StatefulWidget {
+  final Product product;
+
+  const ProductScreen({Key? key, required this.product}) : super(key: key);
+
+  @override
+  State<ProductScreen> createState() => _ProductScreenState();
+}
+
+class _ProductScreenState extends State<ProductScreen> {
+  final PageController _pageController = PageController();
+  int _currentPage = 0;
+  final FavoritesService _favoritesService = FavoritesService();
+  final CartService _cartService = CartService();
+  bool _isFavorite = false;
+  bool _isLoading = false;
+  bool _isAddingToCart = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkIfFavorite();
+    _pageController.addListener(() {
+      setState(() {
+        _currentPage = _pageController.page!.round();
+      });
+    });
+  }
+
+  Future<void> _checkIfFavorite() async {
+    final authProvider = context.read<AuthProvider>();
+    if (authProvider.isLoggedIn && authProvider.currentUser != null) {
+      try {
+        final isFavorite = await _favoritesService.isProductInFavorites(
+          authProvider.currentUser!.uid, 
+          widget.product.id
+        );
+        setState(() {
+          _isFavorite = isFavorite;
+        });
+      } catch (e) {
+        print('❌ Ошибка проверки избранного: $e');
+      }
+    }
+  }
+
+  Future<void> _toggleFavorite() async {
+    final authProvider = context.read<AuthProvider>();
+    if (!authProvider.isLoggedIn || authProvider.currentUser == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Войдите в аккаунт, чтобы добавлять в избранное'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    if (_isLoading) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      if (_isFavorite) {
+        await _favoritesService.removeFromFavorites(
+          authProvider.currentUser!.uid, 
+          widget.product.id
+        );
+      } else {
+        await _favoritesService.addToFavorites(
+          authProvider.currentUser!.uid, 
+          widget.product
+        );
+      }
+
+      setState(() {
+        _isFavorite = !_isFavorite;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _isFavorite 
+              ? '❤️ Товар добавлен в избранное' 
+              : '💔 Товар удален из избранного',
+          ),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      print('❌ Ошибка переключения избранного: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Ошибка: $e'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _addToCart() async {
+    final authProvider = context.read<AuthProvider>();
+    if (!authProvider.isLoggedIn || authProvider.currentUser == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Войдите в аккаунт, чтобы добавлять в корзину'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    if (_isAddingToCart) return;
+
+    setState(() {
+      _isAddingToCart = true;
+    });
+
+    try {
+      await _cartService.addToCart(authProvider.currentUser!.uid, widget.product);
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('🛒 Товар добавлен в корзину'),
+          duration: Duration(seconds: 2),
+          action: SnackBarAction(
+            label: 'Перейти',
+            textColor: Colors.white,
+            onPressed: () {
+              // Навигация в корзину
+              // Navigator.push(context, MaterialPageRoute(builder: (context) => CartScreen()));
+            },
+          ),
+        ),
+      );
+    } catch (e) {
+      print('❌ Ошибка добавления в корзину: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Ошибка при добавлении в корзину: $e'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    } finally {
+      setState(() {
+        _isAddingToCart = false;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: Column(
+          children: [
+            // AppBar
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  IconButton(
+                    icon: Icon(Icons.arrow_back),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                  Text(
+                    'Детали товара',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  IconButton(
+                    icon: _isLoading
+                        ? SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Icon(
+                            _isFavorite ? Icons.favorite : Icons.favorite_border,
+                            color: _isFavorite ? Colors.red : Colors.black,
+                          ),
+                    onPressed: _toggleFavorite,
+                  ),
+                ],
+              ),
+            ),
+            
+            // Swipeable content
+            Expanded(
+              child: PageView(
+                controller: _pageController,
+                children: [
+                  // Страница с изображением
+                  _buildImagePage(),
+                  // Страница с описанием
+                  _buildDescriptionPage(),
+                ],
+              ),
+            ),
+            
+            // Page indicators
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _buildPageIndicator(0, 'Изображение'),
+                  SizedBox(width: 20),
+                  _buildPageIndicator(1, 'Описание'),
+                ],
+              ),
+            ),
+            
+            // Product info and actions
+            _buildProductInfo(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildImagePage() {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        children: [
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black12,
+                    blurRadius: 10,
+                    offset: Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Image.network(
+                  widget.product.imageUrl,
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      color: Colors.grey[200],
+                      child: Icon(
+                        Icons.image,
+                        size: 80,
+                        color: Colors.grey[400],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+          SizedBox(height: 16),
+          Text(
+            'Свайпните влево для описания →',
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 14,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDescriptionPage() {
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Описание товара',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            ),
+            SizedBox(height: 20),
+            Text(
+              widget.product.description,
+              style: TextStyle(
+                fontSize: 16,
+                height: 1.6,
+                color: Colors.grey[800],
+              ),
+            ),
+            SizedBox(height: 20),
+            Text(
+              'Категория: ${widget.product.category}',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[600],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            SizedBox(height: 30),
+            Text(
+              '← Свайпните вправо для изображения',
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPageIndicator(int pageIndex, String label) {
+    return Column(
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: _currentPage == pageIndex ? Colors.blue : Colors.grey[300],
+          ),
+        ),
+        SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: _currentPage == pageIndex ? Colors.blue : Colors.grey[600],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildProductInfo() {
+    return Container(
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 10,
+            offset: Offset(0, -2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.product.name,
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    widget.product.category,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
+              Text(
+                '\$${widget.product.price.toStringAsFixed(2)}',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue[700],
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: _isAddingToCart ? null : _addToCart,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: _isAddingToCart
+                      ? SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : Text('Добавить в корзину'),
+                ),
+              ),
+              SizedBox(width: 12),
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey[300]!),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: IconButton(
+                  icon: Icon(Icons.share),
+                  onPressed: () {
+                    // Поделиться товаром
+                  },
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
