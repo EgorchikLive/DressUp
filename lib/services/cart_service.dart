@@ -4,25 +4,42 @@ import 'package:dress_up/models/product';
 class CartService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // Добавить товар в корзину
+  // Добавить товар в корзину (увеличивает количество при повторном добавлении)
   Future<void> addToCart(String userId, Product product, {int quantity = 1}) async {
     try {
-      await _firestore
+      final cartDocRef = _firestore
           .collection('users')
           .doc(userId)
           .collection('cart')
-          .doc(product.id)
-          .set({
-        'productId': product.id,
-        'name': product.name,
-        'description': product.description,
-        'price': product.price,
-        'imageUrl': product.imageUrl,
-        'category': product.category,
-        'quantity': quantity,
-        'addedAt': Timestamp.now(),
-      });
-      print('✅ Товар ${product.name} добавлен в корзину пользователя $userId');
+          .doc(product.id);
+
+      // Проверяем, есть ли уже товар в корзине
+      final cartDoc = await cartDocRef.get();
+      
+      if (cartDoc.exists) {
+        // Если товар уже есть в корзине, увеличиваем количество
+        final currentQuantity = cartDoc.data()?['quantity'] ?? 0;
+        final newQuantity = currentQuantity + quantity;
+        
+        await cartDocRef.update({
+          'quantity': newQuantity,
+          'updatedAt': Timestamp.now(),
+        });
+        print('✅ Количество товара ${product.name} обновлено: $newQuantity');
+      } else {
+        // Если товара нет в корзине, добавляем новый
+        await cartDocRef.set({
+          'productId': product.id,
+          'name': product.name,
+          'description': product.description,
+          'price': product.price,
+          'imageUrl': product.imageUrl,
+          'category': product.category,
+          'quantity': quantity,
+          'addedAt': Timestamp.now(),
+        });
+        print('✅ Товар ${product.name} добавлен в корзину пользователя $userId');
+      }
     } catch (e) {
       print('❌ Ошибка добавления в корзину: $e');
       throw e;
@@ -129,6 +146,42 @@ class CartService {
     });
   }
 
+  // Получить количество конкретного товара в корзине
+  Future<int> getProductQuantity(String userId, String productId) async {
+    try {
+      final doc = await _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('cart')
+          .doc(productId)
+          .get();
+      
+      if (doc.exists) {
+        return doc.data()?['quantity'] ?? 0;
+      }
+      return 0;
+    } catch (e) {
+      print('❌ Ошибка получения количества товара: $e');
+      return 0;
+    }
+  }
+
+  // Stream для отслеживания количества конкретного товара
+  Stream<int> getProductQuantityStream(String userId, String productId) {
+    return _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('cart')
+        .doc(productId)
+        .snapshots()
+        .map((snapshot) {
+      if (snapshot.exists) {
+        return snapshot.data()?['quantity'] ?? 0;
+      }
+      return 0;
+    });
+  }
+
   // Очистить всю корзину
   Future<void> clearCart(String userId) async {
     try {
@@ -154,6 +207,19 @@ class CartService {
   Future<double> getTotalPrice(String userId) async {
     final cartItems = await getCartItems(userId);
     return cartItems.fold<double>(0, (total, item) => total + (item.product.price * item.quantity));
+  }
+
+  // Получить общее количество товаров в корзине
+  Future<int> getTotalItemsCount(String userId) async {
+    final cartItems = await getCartItems(userId);
+    return cartItems.fold<int>(0, (total, item) => total + item.quantity);
+  }
+
+  // Stream для общего количества товаров в корзине
+  Stream<int> getTotalItemsCountStream(String userId) {
+    return getCartItemsStream(userId).map((cartItems) {
+      return cartItems.fold<int>(0, (total, item) => total + item.quantity);
+    });
   }
 }
 

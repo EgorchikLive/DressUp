@@ -24,6 +24,7 @@ class ProductCard extends StatefulWidget {
 
 class _ProductCardState extends State<ProductCard> {
   late Stream<bool> _isFavoriteStream;
+  late Stream<int> _cartQuantityStream;
   bool _isLoading = false;
   bool _isAddingToCart = false;
 
@@ -37,6 +38,21 @@ class _ProductCardState extends State<ProductCard> {
       );
     } else {
       _isFavoriteStream = Stream.value(false);
+    }
+    
+    _setupCartStream();
+  }
+
+  void _setupCartStream() {
+    final authProvider = context.read<AuthProvider>();
+    if (authProvider.isLoggedIn && authProvider.currentUser != null) {
+      final cartService = CartService();
+      _cartQuantityStream = cartService.getProductQuantityStream(
+        authProvider.currentUser!.uid, 
+        widget.product.id
+      );
+    } else {
+      _cartQuantityStream = Stream.value(0);
     }
   }
 
@@ -114,8 +130,6 @@ class _ProductCardState extends State<ProductCard> {
       return;
     }
 
-    if (_isAddingToCart) return;
-
     setState(() {
       _isAddingToCart = true;
     });
@@ -124,9 +138,15 @@ class _ProductCardState extends State<ProductCard> {
       final cartService = CartService();
       await cartService.addToCart(authProvider.currentUser!.uid, widget.product);
       
+      // Получаем актуальное количество после добавления
+      final currentQuantity = await cartService.getProductQuantity(
+        authProvider.currentUser!.uid, 
+        widget.product.id
+      );
+      
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('🛒 Товар добавлен в корзину'),
+          content: Text('🛒 Товар добавлен в корзину ($currentQuantity шт.)'),
           duration: Duration(seconds: 2),
           behavior: SnackBarBehavior.floating,
           action: SnackBarAction(
@@ -134,7 +154,6 @@ class _ProductCardState extends State<ProductCard> {
             textColor: Colors.white,
             onPressed: () {
               // Навигация в корзину
-              // Можно добавить навигацию если нужно
             },
           ),
         ),
@@ -235,6 +254,36 @@ class _ProductCardState extends State<ProductCard> {
                       ),
                     ),
                   ),
+
+                  // Счетчик количества в корзине (если больше 0)
+                  StreamBuilder<int>(
+                    stream: _cartQuantityStream,
+                    builder: (context, snapshot) {
+                      final quantity = snapshot.data ?? 0;
+                      if (quantity > 0) {
+                        return Positioned(
+                          top: 8,
+                          left: 8,
+                          child: Container(
+                            padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.green,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              '$quantity',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        );
+                      }
+                      return SizedBox.shrink();
+                    },
+                  ),
                 ],
               ),
             ),
@@ -277,52 +326,83 @@ class _ProductCardState extends State<ProductCard> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // Убрана цена слева
-                      SizedBox(width: 64),
-                      
-                      // Кнопка с ценой для добавления в корзину
                       Expanded(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.blue,
-                            borderRadius: BorderRadius.circular(8),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black26,
-                                blurRadius: 4,
-                                offset: Offset(0, 2),
+                        child: StreamBuilder<int>(
+                          stream: _cartQuantityStream,
+                          builder: (context, snapshot) {
+                            final quantity = snapshot.data ?? 0;
+                            return Container(
+                              decoration: BoxDecoration(
+                                color: quantity > 0 ? Colors.green : Colors.blue,
+                                borderRadius: BorderRadius.circular(8),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black26,
+                                    blurRadius: 4,
+                                    offset: Offset(0, 2),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              onTap: _addToCart,
-                              borderRadius: BorderRadius.circular(8),
-                              child: Container(
-                                padding: EdgeInsets.symmetric(vertical: 0),
-                                child: Center(
-                                  child: _isAddingToCart
-                                      ? SizedBox(
-                                          width: 20,
-                                          height: 20,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                          ),
-                                        )
-                                      : Text(
-                                          '\$${widget.product.price.toStringAsFixed(2)}',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: _addToCart,
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Container(
+                                    padding: EdgeInsets.symmetric(vertical: 12),
+                                    child: Center(
+                                      child: _isAddingToCart
+                                          ? SizedBox(
+                                              width: 20,
+                                              height: 20,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                              ),
+                                            )
+                                          : Row(
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              children: [
+                                                Icon(
+                                                  Icons.shopping_cart,
+                                                  color: Colors.white,
+                                                  size: 16,
+                                                ),
+                                                SizedBox(width: 4),
+                                                Text(
+                                                  '\$${widget.product.price.toStringAsFixed(2)}',
+                                                  style: TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 16,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                                if (quantity > 0) ...[
+                                                  SizedBox(width: 4),
+                                                  Container(
+                                                    padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.white.withOpacity(0.3),
+                                                      borderRadius: BorderRadius.circular(8),
+                                                    ),
+                                                    child: Text(
+                                                      '$quantity',
+                                                      style: TextStyle(
+                                                        color: Colors.white,
+                                                        fontSize: 12,
+                                                        fontWeight: FontWeight.bold,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ],
+                                            ),
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ),
-                          ),
+                            );
+                          },
                         ),
                       ),
                     ],

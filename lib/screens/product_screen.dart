@@ -22,16 +22,30 @@ class _ProductScreenState extends State<ProductScreen> {
   bool _isFavorite = false;
   bool _isLoading = false;
   bool _isAddingToCart = false;
+  late Stream<int> _cartQuantityStream;
 
   @override
   void initState() {
     super.initState();
     _checkIfFavorite();
+    _setupCartStream();
     _pageController.addListener(() {
       setState(() {
         _currentPage = _pageController.page!.round();
       });
     });
+  }
+
+  void _setupCartStream() {
+    final authProvider = context.read<AuthProvider>();
+    if (authProvider.isLoggedIn && authProvider.currentUser != null) {
+      _cartQuantityStream = _cartService.getProductQuantityStream(
+        authProvider.currentUser!.uid, 
+        widget.product.id
+      );
+    } else {
+      _cartQuantityStream = Stream.value(0);
+    }
   }
 
   Future<void> _checkIfFavorite() async {
@@ -124,8 +138,6 @@ class _ProductScreenState extends State<ProductScreen> {
       return;
     }
 
-    if (_isAddingToCart) return;
-
     setState(() {
       _isAddingToCart = true;
     });
@@ -133,9 +145,15 @@ class _ProductScreenState extends State<ProductScreen> {
     try {
       await _cartService.addToCart(authProvider.currentUser!.uid, widget.product);
       
+      // Получаем актуальное количество после добавления
+      final currentQuantity = await _cartService.getProductQuantity(
+        authProvider.currentUser!.uid, 
+        widget.product.id
+      );
+      
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('🛒 Товар добавлен в корзину'),
+          content: Text('🛒 Товар добавлен в корзину ($currentQuantity шт.)'),
           duration: Duration(seconds: 2),
           action: SnackBarAction(
             label: 'Перейти',
@@ -214,9 +232,7 @@ class _ProductScreenState extends State<ProductScreen> {
               child: PageView(
                 controller: _pageController,
                 children: [
-                  // Страница с изображением
                   _buildImagePage(),
-                  // Страница с описанием
                   _buildDescriptionPage(),
                 ],
               ),
@@ -249,35 +265,75 @@ class _ProductScreenState extends State<ProductScreen> {
       child: Column(
         children: [
           Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black12,
-                    blurRadius: 10,
-                    offset: Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: Image.network(
-                  widget.product.imageUrl,
-                  fit: BoxFit.cover,
-                  width: double.infinity,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      color: Colors.grey[200],
-                      child: Icon(
-                        Icons.image,
-                        size: 80,
-                        color: Colors.grey[400],
+            child: Stack(
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black12,
+                        blurRadius: 10,
+                        offset: Offset(0, 4),
                       ),
-                    );
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Image.network(
+                      widget.product.imageUrl,
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          color: Colors.grey[200],
+                          child: Icon(
+                            Icons.image,
+                            size: 80,
+                            color: Colors.grey[400],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                // Счетчик добавлений в корзину (если больше 0)
+                StreamBuilder<int>(
+                  stream: _cartQuantityStream,
+                  builder: (context, snapshot) {
+                    final quantity = snapshot.data ?? 0;
+                    if (quantity > 0) {
+                      return Positioned(
+                        top: 16,
+                        left: 16,
+                        child: Container(
+                          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.green,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black26,
+                                blurRadius: 4,
+                                offset: Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Text(
+                            '$quantity в корзине',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+                    return SizedBox.shrink();
                   },
                 ),
-              ),
+              ],
             ),
           ),
           SizedBox(height: 16),
@@ -416,26 +472,66 @@ class _ProductScreenState extends State<ProductScreen> {
           Row(
             children: [
               Expanded(
-                child: ElevatedButton(
-                  onPressed: _isAddingToCart ? null : _addToCart,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                    foregroundColor: Colors.white,
-                    padding: EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: _isAddingToCart
-                      ? SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        )
-                      : Text('Добавить в корзину'),
+                child: StreamBuilder<int>(
+                  stream: _cartQuantityStream,
+                  builder: (context, snapshot) {
+                    final quantity = snapshot.data ?? 0;
+                    return ElevatedButton(
+                      onPressed: _isAddingToCart ? null : _addToCart,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: quantity > 0 ? Colors.green : Colors.blue,
+                        foregroundColor: Colors.white,
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: _isAddingToCart
+                          ? SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            )
+                          : Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.shopping_cart,
+                                  size: 20,
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  quantity > 0 ? 'Добавить еще' : 'Добавить в корзину',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                if (quantity > 0) ...[
+                                  SizedBox(width: 8),
+                                  Container(
+                                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.3),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      '$quantity',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                    );
+                  },
                 ),
               ),
               SizedBox(width: 12),
