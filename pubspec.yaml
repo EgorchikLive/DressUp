@@ -58,7 +58,7 @@ dev_dependencies:
 
 flutter_native_splash:
   color: "#2196f3"  # Цвет фона
-  image: lib/assets/icons/DressUp.png # Путь к изображению
+  image: lib/assets/icons/icon.png # Путь к изображению
   android: true
   ios: true
 
