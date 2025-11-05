@@ -1,4 +1,4 @@
-import 'package:dress_up/models/product';
+import 'package:dress_up/models/product.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dress_up/services/FavoritesService.dart';
@@ -60,13 +60,22 @@ class ProductGrid extends StatelessWidget {
   Product _parseProductFromDoc(QueryDocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>? ?? {};
     
+    // Обрабатываем imageUrls
+    List<String> imageUrls = [];
+    if (data['imageUrls'] is List) {
+      imageUrls = List<String>.from(data['imageUrls'] ?? []);
+    } else if (data['imageUrl'] is String) {
+      // Для обратной совместимости
+      imageUrls = [data['imageUrl']];
+    }
+    
     return Product(
       id: data['id']?.toString() ?? doc.id,
       name: data['name']?.toString() ?? 'Без названия',
       price: _parsePrice(data['price']),
       category: data['category']?.toString() ?? 'Без категории',
       description: data['description']?.toString() ?? '',
-      imageUrl: data['imageUrl']?.toString() ?? '',
+      imageUrls: imageUrls, // Используем список
     );
   }
 

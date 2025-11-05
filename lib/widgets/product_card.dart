@@ -1,4 +1,4 @@
-import 'package:dress_up/models/product';
+import 'package:dress_up/models/product.dart';
 import 'package:dress_up/services/FavoritesService.dart';
 import 'package:dress_up/services/cart_service.dart';
 import 'package:flutter/material.dart';
@@ -25,6 +25,8 @@ class ProductCard extends StatefulWidget {
 class _ProductCardState extends State<ProductCard> {
   late Stream<bool> _isFavoriteStream;
   late Stream<int> _cartQuantityStream;
+  final PageController _imagePageController = PageController();
+  int _currentImageIndex = 0;
   bool _isLoading = false;
   bool _isAddingToCart = false;
 
@@ -33,13 +35,13 @@ class _ProductCardState extends State<ProductCard> {
     super.initState();
     if (widget.userId != null) {
       _isFavoriteStream = widget.favoritesService.isProductInFavoritesStream(
-        widget.userId!, 
-        widget.product.id
+        widget.userId!,
+        widget.product.id,
       );
     } else {
       _isFavoriteStream = Stream.value(false);
     }
-    
+
     _setupCartStream();
   }
 
@@ -48,8 +50,8 @@ class _ProductCardState extends State<ProductCard> {
     if (authProvider.isLoggedIn && authProvider.currentUser != null) {
       final cartService = CartService();
       _cartQuantityStream = cartService.getProductQuantityStream(
-        authProvider.currentUser!.uid, 
-        widget.product.id
+        authProvider.currentUser!.uid,
+        widget.product.id,
       );
     } else {
       _cartQuantityStream = Stream.value(0);
@@ -80,22 +82,22 @@ class _ProductCardState extends State<ProductCard> {
 
       if (isCurrentlyFavorite) {
         await widget.favoritesService.removeFromFavorites(
-          widget.userId!, 
-          widget.product.id
+          widget.userId!,
+          widget.product.id,
         );
       } else {
         await widget.favoritesService.addToFavorites(
-          widget.userId!, 
-          widget.product
+          widget.userId!,
+          widget.product,
         );
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            !isCurrentlyFavorite 
-              ? '❤️ Товар добавлен в избранное' 
-              : '💔 Товар удален из избранного',
+            !isCurrentlyFavorite
+                ? '❤️ Товар добавлен в избранное'
+                : '💔 Товар удален из избранного',
           ),
           duration: Duration(seconds: 2),
           behavior: SnackBarBehavior.floating,
@@ -136,14 +138,17 @@ class _ProductCardState extends State<ProductCard> {
 
     try {
       final cartService = CartService();
-      await cartService.addToCart(authProvider.currentUser!.uid, widget.product);
-      
+      await cartService.addToCart(
+        authProvider.currentUser!.uid,
+        widget.product,
+      );
+
       // Получаем актуальное количество после добавления
       final currentQuantity = await cartService.getProductQuantity(
-        authProvider.currentUser!.uid, 
-        widget.product.id
+        authProvider.currentUser!.uid,
+        widget.product.id,
       );
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('🛒 Товар добавлен в корзину ($currentQuantity шт.)'),
@@ -184,6 +189,12 @@ class _ProductCardState extends State<ProductCard> {
   }
 
   @override
+  void dispose() {
+    _imagePageController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Card(
       elevation: 2,
@@ -194,30 +205,90 @@ class _ProductCardState extends State<ProductCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Изображение товара
+            // Изображение товара с слайдером
             Expanded(
               child: Stack(
                 children: [
+                  // Слайдер изображений
                   Container(
                     width: double.infinity,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-                      child: Image.network(
-                        widget.product.imageUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Container(
-                            color: Colors.grey[200],
-                            child: Icon(Icons.image, color: Colors.grey[400]),
-                          );
-                        },
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(12),
                       ),
                     ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(12),
+                      ),
+                      child: widget.product.imageUrls.length > 1
+                          ? PageView.builder(
+                              controller: _imagePageController,
+                              itemCount: widget.product.imageUrls.length,
+                              itemBuilder: (context, index) {
+                                return Image.network(
+                                  widget.product.imageUrls[index],
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Container(
+                                      color: Colors.grey[200],
+                                      child: Icon(
+                                        Icons.image,
+                                        color: Colors.grey[400],
+                                      ),
+                                    );
+                                  },
+                                );
+                              },
+                              onPageChanged: (index) {
+                                setState(() {
+                                  _currentImageIndex = index;
+                                });
+                              },
+                            )
+                          : Image.network(
+                              widget.product.imageUrls.isNotEmpty
+                                  ? widget.product.imageUrls[0]
+                                  : '',
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  color: Colors.grey[200],
+                                  child: Icon(
+                                    Icons.image,
+                                    color: Colors.grey[400],
+                                  ),
+                                );
+                              },
+                            ),
+                    ),
                   ),
-                  
+
+                  // Индикатор слайдера (только если больше 1 изображения)
+                  if (widget.product.imageUrls.length > 1)
+                    Positioned(
+                      bottom: 8,
+                      left: 0,
+                      right: 0,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(
+                          widget.product.imageUrls.length,
+                          (index) => Container(
+                            margin: EdgeInsets.symmetric(horizontal: 2),
+                            width: 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: _currentImageIndex == index
+                                  ? Colors.white
+                                  : Colors.white.withOpacity(0.5),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+
                   // Кнопка избранного
                   Positioned(
                     top: 8,
@@ -234,7 +305,9 @@ class _ProductCardState extends State<ProductCard> {
                                 height: 20,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.red),
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.red,
+                                  ),
                                 ),
                               )
                             : StreamBuilder<bool>(
@@ -242,15 +315,22 @@ class _ProductCardState extends State<ProductCard> {
                                 builder: (context, snapshot) {
                                   final isFavorite = snapshot.data ?? false;
                                   return Icon(
-                                    isFavorite ? Icons.favorite : Icons.favorite_border,
-                                    color: isFavorite ? Colors.red : Colors.grey[600],
+                                    isFavorite
+                                        ? Icons.favorite
+                                        : Icons.favorite_border,
+                                    color: isFavorite
+                                        ? Colors.red
+                                        : Colors.grey[600],
                                     size: 20,
                                   );
                                 },
                               ),
                         onPressed: _toggleFavorite,
                         padding: EdgeInsets.all(4),
-                        constraints: BoxConstraints(minWidth: 36, minHeight: 36),
+                        constraints: BoxConstraints(
+                          minWidth: 36,
+                          minHeight: 36,
+                        ),
                       ),
                     ),
                   ),
@@ -265,7 +345,10 @@ class _ProductCardState extends State<ProductCard> {
                           top: 8,
                           left: 8,
                           child: Container(
-                            padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: Colors.green,
                               borderRadius: BorderRadius.circular(10),
@@ -287,7 +370,7 @@ class _ProductCardState extends State<ProductCard> {
                 ],
               ),
             ),
-            
+
             // Информация о товаре
             Padding(
               padding: const EdgeInsets.all(12.0),
@@ -305,9 +388,9 @@ class _ProductCardState extends State<ProductCard> {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  
+
                   SizedBox(height: 4),
-                  
+
                   // Описание товара
                   Text(
                     widget.product.description,
@@ -319,9 +402,9 @@ class _ProductCardState extends State<ProductCard> {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  
+
                   SizedBox(height: 8),
-                  
+
                   // Цена и кнопка корзины
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -333,7 +416,9 @@ class _ProductCardState extends State<ProductCard> {
                             final quantity = snapshot.data ?? 0;
                             return Container(
                               decoration: BoxDecoration(
-                                color: quantity > 0 ? Colors.green : Colors.blue,
+                                color: quantity > 0
+                                    ? Colors.green
+                                    : Colors.blue,
                                 borderRadius: BorderRadius.circular(8),
                                 boxShadow: [
                                   BoxShadow(
@@ -357,11 +442,15 @@ class _ProductCardState extends State<ProductCard> {
                                               height: 20,
                                               child: CircularProgressIndicator(
                                                 strokeWidth: 2,
-                                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                                valueColor:
+                                                    AlwaysStoppedAnimation<
+                                                      Color
+                                                    >(Colors.white),
                                               ),
                                             )
                                           : Row(
-                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
                                               children: [
                                                 Icon(
                                                   Icons.shopping_cart,
@@ -380,17 +469,26 @@ class _ProductCardState extends State<ProductCard> {
                                                 if (quantity > 0) ...[
                                                   SizedBox(width: 4),
                                                   Container(
-                                                    padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                    padding:
+                                                        EdgeInsets.symmetric(
+                                                          horizontal: 6,
+                                                          vertical: 2,
+                                                        ),
                                                     decoration: BoxDecoration(
-                                                      color: Colors.white.withOpacity(0.3),
-                                                      borderRadius: BorderRadius.circular(8),
+                                                      color: Colors.white
+                                                          .withOpacity(0.3),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            8,
+                                                          ),
                                                     ),
                                                     child: Text(
                                                       '$quantity',
                                                       style: TextStyle(
                                                         color: Colors.white,
                                                         fontSize: 12,
-                                                        fontWeight: FontWeight.bold,
+                                                        fontWeight:
+                                                            FontWeight.bold,
                                                       ),
                                                     ),
                                                   ),

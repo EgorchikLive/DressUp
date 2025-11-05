@@ -1,4 +1,4 @@
-import 'package:dress_up/models/product';
+import 'package:dress_up/models/product.dart';
 import 'package:dress_up/services/FavoritesService.dart';
 import 'package:dress_up/services/cart_service.dart';
 import 'package:flutter/material.dart';
@@ -16,7 +16,9 @@ class ProductScreen extends StatefulWidget {
 
 class _ProductScreenState extends State<ProductScreen> {
   final PageController _pageController = PageController();
+  final PageController _imagePageController = PageController(); // Добавляем отдельный контроллер для изображений
   int _currentPage = 0;
+  int _currentImageIndex = 0; // Добавляем переменную для индекса изображения
   final FavoritesService _favoritesService = FavoritesService();
   final CartService _cartService = CartService();
   bool _isFavorite = false;
@@ -40,8 +42,8 @@ class _ProductScreenState extends State<ProductScreen> {
     final authProvider = context.read<AuthProvider>();
     if (authProvider.isLoggedIn && authProvider.currentUser != null) {
       _cartQuantityStream = _cartService.getProductQuantityStream(
-        authProvider.currentUser!.uid, 
-        widget.product.id
+        authProvider.currentUser!.uid,
+        widget.product.id,
       );
     } else {
       _cartQuantityStream = Stream.value(0);
@@ -53,8 +55,8 @@ class _ProductScreenState extends State<ProductScreen> {
     if (authProvider.isLoggedIn && authProvider.currentUser != null) {
       try {
         final isFavorite = await _favoritesService.isProductInFavorites(
-          authProvider.currentUser!.uid, 
-          widget.product.id
+          authProvider.currentUser!.uid,
+          widget.product.id,
         );
         setState(() {
           _isFavorite = isFavorite;
@@ -86,13 +88,13 @@ class _ProductScreenState extends State<ProductScreen> {
     try {
       if (_isFavorite) {
         await _favoritesService.removeFromFavorites(
-          authProvider.currentUser!.uid, 
-          widget.product.id
+          authProvider.currentUser!.uid,
+          widget.product.id,
         );
       } else {
         await _favoritesService.addToFavorites(
-          authProvider.currentUser!.uid, 
-          widget.product
+          authProvider.currentUser!.uid,
+          widget.product,
         );
       }
 
@@ -103,9 +105,9 @@ class _ProductScreenState extends State<ProductScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            _isFavorite 
-              ? '❤️ Товар добавлен в избранное' 
-              : '💔 Товар удален из избранного',
+            _isFavorite
+                ? '❤️ Товар добавлен в избранное'
+                : '💔 Товар удален из избранного',
           ),
           duration: Duration(seconds: 2),
         ),
@@ -143,14 +145,17 @@ class _ProductScreenState extends State<ProductScreen> {
     });
 
     try {
-      await _cartService.addToCart(authProvider.currentUser!.uid, widget.product);
-      
+      await _cartService.addToCart(
+        authProvider.currentUser!.uid,
+        widget.product,
+      );
+
       // Получаем актуальное количество после добавления
       final currentQuantity = await _cartService.getProductQuantity(
-        authProvider.currentUser!.uid, 
-        widget.product.id
+        authProvider.currentUser!.uid,
+        widget.product.id,
       );
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('🛒 Товар добавлен в корзину ($currentQuantity шт.)'),
@@ -184,6 +189,7 @@ class _ProductScreenState extends State<ProductScreen> {
   @override
   void dispose() {
     _pageController.dispose();
+    _imagePageController.dispose(); // Не забываем освободить контроллер
     super.dispose();
   }
 
@@ -205,10 +211,7 @@ class _ProductScreenState extends State<ProductScreen> {
                   ),
                   Text(
                     'Детали товара',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   IconButton(
                     icon: _isLoading
@@ -218,7 +221,9 @@ class _ProductScreenState extends State<ProductScreen> {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : Icon(
-                            _isFavorite ? Icons.favorite : Icons.favorite_border,
+                            _isFavorite
+                                ? Icons.favorite
+                                : Icons.favorite_border,
                             color: _isFavorite ? Colors.red : Colors.black,
                           ),
                     onPressed: _toggleFavorite,
@@ -226,18 +231,15 @@ class _ProductScreenState extends State<ProductScreen> {
                 ],
               ),
             ),
-            
+
             // Swipeable content
             Expanded(
               child: PageView(
                 controller: _pageController,
-                children: [
-                  _buildImagePage(),
-                  _buildDescriptionPage(),
-                ],
+                children: [_buildImagePage(), _buildDescriptionPage()],
               ),
             ),
-            
+
             // Page indicators
             Padding(
               padding: const EdgeInsets.all(16.0),
@@ -250,7 +252,7 @@ class _ProductScreenState extends State<ProductScreen> {
                 ],
               ),
             ),
-            
+
             // Product info and actions
             _buildProductInfo(),
           ],
@@ -267,6 +269,7 @@ class _ProductScreenState extends State<ProductScreen> {
           Expanded(
             child: Stack(
               children: [
+                // Заменяем одиночное изображение на PageView для нескольких изображений
                 Container(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(16),
@@ -280,24 +283,79 @@ class _ProductScreenState extends State<ProductScreen> {
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(16),
-                    child: Image.network(
-                      widget.product.imageUrl,
-                      fit: BoxFit.cover,
-                      width: double.infinity,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          color: Colors.grey[200],
-                          child: Icon(
-                            Icons.image,
-                            size: 80,
-                            color: Colors.grey[400],
+                    child: widget.product.imageUrls.length > 1
+                        ? PageView.builder(
+                            controller: _imagePageController, // Используем отдельный контроллер
+                            itemCount: widget.product.imageUrls.length,
+                            itemBuilder: (context, index) {
+                              return Image.network(
+                                widget.product.imageUrls[index],
+                                fit: BoxFit.cover,
+                                width: double.infinity,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Container(
+                                    color: Colors.grey[200],
+                                    child: Icon(
+                                      Icons.image,
+                                      size: 80,
+                                      color: Colors.grey[400],
+                                    ),
+                                  );
+                                },
+                              );
+                            },
+                            onPageChanged: (index) {
+                              setState(() {
+                                _currentImageIndex = index; // Теперь переменная объявлена
+                              });
+                            },
+                          )
+                        : Image.network(
+                            widget.product.imageUrls.isNotEmpty
+                                ? widget.product.imageUrls[0]
+                                : '',
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                color: Colors.grey[200],
+                                child: Icon(
+                                  Icons.image,
+                                  size: 80,
+                                  color: Colors.grey[400],
+                                ),
+                              );
+                            },
                           ),
-                        );
-                      },
-                    ),
                   ),
                 ),
-                // Счетчик добавлений в корзину (если больше 0)
+
+                // Индикатор для нескольких изображений
+                if (widget.product.imageUrls.length > 1)
+                  Positioned(
+                    bottom: 16,
+                    left: 0,
+                    right: 0,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(
+                        widget.product.imageUrls.length,
+                        (index) => Container(
+                          margin: EdgeInsets.symmetric(horizontal: 4),
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: _currentImageIndex == index
+                                ? Colors.white
+                                : Colors.white.withOpacity(0.5),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                // Счетчик добавлений в корзину
                 StreamBuilder<int>(
                   stream: _cartQuantityStream,
                   builder: (context, snapshot) {
@@ -307,7 +365,10 @@ class _ProductScreenState extends State<ProductScreen> {
                         top: 16,
                         left: 16,
                         child: Container(
-                          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.green,
                             borderRadius: BorderRadius.circular(12),
@@ -338,11 +399,10 @@ class _ProductScreenState extends State<ProductScreen> {
           ),
           SizedBox(height: 16),
           Text(
-            'Свайпните влево для описания →',
-            style: TextStyle(
-              color: Colors.grey[600],
-              fontSize: 14,
-            ),
+            widget.product.imageUrls.length > 1
+                ? 'Свайпните для просмотра других изображений →'
+                : 'Свайпните влево для описания →',
+            style: TextStyle(color: Colors.grey[600], fontSize: 14),
           ),
         ],
       ),
@@ -385,10 +445,7 @@ class _ProductScreenState extends State<ProductScreen> {
             SizedBox(height: 30),
             Text(
               '← Свайпните вправо для изображения',
-              style: TextStyle(
-                color: Colors.grey[600],
-                fontSize: 14,
-              ),
+              style: TextStyle(color: Colors.grey[600], fontSize: 14),
             ),
           ],
         ),
@@ -443,18 +500,12 @@ class _ProductScreenState extends State<ProductScreen> {
                 children: [
                   Text(
                     widget.product.name,
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                   SizedBox(height: 4),
                   Text(
                     widget.product.category,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[600],
-                    ),
+                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                   ),
                 ],
               ),
@@ -479,7 +530,9 @@ class _ProductScreenState extends State<ProductScreen> {
                     return ElevatedButton(
                       onPressed: _isAddingToCart ? null : _addToCart,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: quantity > 0 ? Colors.green : Colors.blue,
+                        backgroundColor: quantity > 0
+                            ? Colors.green
+                            : Colors.blue,
                         foregroundColor: Colors.white,
                         padding: EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
@@ -492,19 +545,20 @@ class _ProductScreenState extends State<ProductScreen> {
                               height: 20,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Colors.white,
+                                ),
                               ),
                             )
                           : Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(
-                                  Icons.shopping_cart,
-                                  size: 20,
-                                ),
+                                Icon(Icons.shopping_cart, size: 20),
                                 SizedBox(width: 8),
                                 Text(
-                                  quantity > 0 ? 'Добавить еще' : 'Добавить в корзину',
+                                  quantity > 0
+                                      ? 'Добавить еще'
+                                      : 'Добавить в корзину',
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
@@ -513,7 +567,10 @@ class _ProductScreenState extends State<ProductScreen> {
                                 if (quantity > 0) ...[
                                   SizedBox(width: 8),
                                   Container(
-                                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: Colors.white.withOpacity(0.3),
                                       borderRadius: BorderRadius.circular(8),

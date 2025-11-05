@@ -1,4 +1,4 @@
-import 'package:dress_up/models/product';
+import 'package:dress_up/models/product.dart';
 import 'package:dress_up/services/FavoritesService.dart';
 import 'package:dress_up/widgets/banner_slider.dart';
 import 'package:dress_up/widgets/category_filter.dart';
@@ -15,16 +15,15 @@ import '../services/product_service.dart';
 class HomeScreen extends StatefulWidget {
   final ScrollController scrollController;
 
-  const HomeScreen({
-    Key? key, 
-    required this.scrollController,
-  }) : super(key: key);
+  const HomeScreen({Key? key, required this.scrollController})
+    : super(key: key);
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMixin {
+class _HomeScreenState extends State<HomeScreen>
+    with AutomaticKeepAliveClientMixin {
   final HomeStateManager _stateManager = HomeStateManager();
   final ProductService _productService = ProductService();
 
@@ -55,13 +54,15 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    
+
     final authProvider = Provider.of<AuthProvider>(context);
-    final String? userId = authProvider.isLoggedIn ? authProvider.currentUser?.uid : null;
+    final String? userId = authProvider.isLoggedIn
+        ? authProvider.currentUser?.uid
+        : null;
 
     return Scaffold(
       appBar: AppBar(
-        title: _stateManager.isSearching 
+        title: _stateManager.isSearching
             ? Text('Поиск: ${_stateManager.searchQuery}')
             : Text('DressUp'),
         backgroundColor: Colors.white,
@@ -145,10 +146,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           return _buildEmptySearchSliver();
         }
 
-        return ProductGrid(
-          products: filteredProducts,
-          userId: userId,
-        );
+        return ProductGrid(products: filteredProducts, userId: userId);
       },
     );
   }
@@ -172,14 +170,17 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           delegate: SliverChildListDelegate([
             // Заголовок
             _buildHeader(userId),
-            
+
             // Первые 2 товара
-            if (filteredProducts.isNotEmpty) 
-              _buildProductsAsWidgets(filteredProducts.take(2).toList(), userId),
-            
+            if (filteredProducts.isNotEmpty)
+              _buildProductsAsWidgets(
+                filteredProducts.take(2).toList(),
+                userId,
+              ),
+
             // Слайдер
             BannerSlider(),
-            
+
             // Остальные товары
             if (filteredProducts.length > 2)
               _buildProductsAsWidgets(filteredProducts.sublist(2), userId),
@@ -189,7 +190,11 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     );
   }
 
-  Widget _buildProductsAsWidgets(List<QueryDocumentSnapshot> products, String? userId) {
+  // В HomeScreen в методе _buildProductsAsWidgets
+  Widget _buildProductsAsWidgets(
+    List<QueryDocumentSnapshot> products,
+    String? userId,
+  ) {
     return Padding(
       padding: const EdgeInsets.all(8.0),
       child: GridView.builder(
@@ -207,7 +212,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           try {
             final product = _parseProductFromDoc(productDoc);
             final favoritesService = FavoritesService();
-            
+
             return ProductCard(
               product: product,
               userId: userId,
@@ -231,14 +236,23 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
 
   Product _parseProductFromDoc(QueryDocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>? ?? {};
-    
+
+    // Обрабатываем imageUrls
+    List<String> imageUrls = [];
+    if (data['imageUrls'] is List) {
+      imageUrls = List<String>.from(data['imageUrls'] ?? []);
+    } else if (data['imageUrl'] is String) {
+      // Для обратной совместимости с старыми данными
+      imageUrls = [data['imageUrl']];
+    }
+
     return Product(
       id: data['id']?.toString() ?? doc.id,
       name: data['name']?.toString() ?? 'Без названия',
       price: _parsePrice(data['price']),
       category: data['category']?.toString() ?? 'Без категории',
       description: data['description']?.toString() ?? '',
-      imageUrl: data['imageUrl']?.toString() ?? '',
+      imageUrls: imageUrls, // Теперь используем список
     );
   }
 
@@ -260,13 +274,10 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                _stateManager.isCategoryFilterActive 
-                    ? '${_stateManager.selectedCategories.length} категории' 
+                _stateManager.isCategoryFilterActive
+                    ? '${_stateManager.selectedCategories.length} категории'
                     : 'Все товары',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               ),
               if (_stateManager.selectedSort != 'По умолчанию')
                 Container(
@@ -297,10 +308,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           if (userId == null)
             Text(
               'Войдите в аккаунт, чтобы добавлять товары в избранное',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey,
-              ),
+              style: TextStyle(fontSize: 12, color: Colors.grey),
             ),
         ],
       ),
@@ -327,10 +335,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
             children: [
               Icon(Icons.error_outline, size: 64, color: Colors.red),
               SizedBox(height: 16),
-              Text(
-                message,
-                style: TextStyle(fontSize: 16, color: Colors.grey),
-              ),
+              Text(message, style: TextStyle(fontSize: 16, color: Colors.grey)),
             ],
           ),
         ),

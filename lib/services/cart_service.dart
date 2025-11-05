@@ -1,11 +1,15 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:dress_up/models/product';
+import 'package:dress_up/models/product.dart';
 
 class CartService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // Добавить товар в корзину (увеличивает количество при повторном добавлении)
-  Future<void> addToCart(String userId, Product product, {int quantity = 1}) async {
+  Future<void> addToCart(
+    String userId,
+    Product product, {
+    int quantity = 1,
+  }) async {
     try {
       final cartDocRef = _firestore
           .collection('users')
@@ -15,12 +19,12 @@ class CartService {
 
       // Проверяем, есть ли уже товар в корзине
       final cartDoc = await cartDocRef.get();
-      
+
       if (cartDoc.exists) {
         // Если товар уже есть в корзине, увеличиваем количество
         final currentQuantity = cartDoc.data()?['quantity'] ?? 0;
         final newQuantity = currentQuantity + quantity;
-        
+
         await cartDocRef.update({
           'quantity': newQuantity,
           'updatedAt': Timestamp.now(),
@@ -33,12 +37,14 @@ class CartService {
           'name': product.name,
           'description': product.description,
           'price': product.price,
-          'imageUrl': product.imageUrl,
+          'imageUrls': product.imageUrls, // Изменено на imageUrls
           'category': product.category,
           'quantity': quantity,
           'addedAt': Timestamp.now(),
         });
-        print('✅ Товар ${product.name} добавлен в корзину пользователя $userId');
+        print(
+          '✅ Товар ${product.name} добавлен в корзину пользователя $userId',
+        );
       }
     } catch (e) {
       print('❌ Ошибка добавления в корзину: $e');
@@ -63,7 +69,11 @@ class CartService {
   }
 
   // Обновить количество товара
-  Future<void> updateQuantity(String userId, String productId, int quantity) async {
+  Future<void> updateQuantity(
+    String userId,
+    String productId,
+    int quantity,
+  ) async {
     try {
       if (quantity <= 0) {
         await removeFromCart(userId, productId);
@@ -73,10 +83,7 @@ class CartService {
             .doc(userId)
             .collection('cart')
             .doc(productId)
-            .update({
-          'quantity': quantity,
-          'updatedAt': Timestamp.now(),
-        });
+            .update({'quantity': quantity, 'updatedAt': Timestamp.now()});
       }
       print('✅ Количество товара $productId обновлено: $quantity');
     } catch (e) {
@@ -104,7 +111,8 @@ class CartService {
             description: data['description'] ?? '',
             price: (data['price'] ?? 0.0).toDouble(),
             imageUrl: data['imageUrl'] ?? '',
-            category: data['category'] ?? '',
+            category: data['category'] ?? '', 
+            imageUrls: [],
           ),
           quantity: data['quantity'] ?? 1,
           addedAt: data['addedAt']?.toDate() ?? DateTime.now(),
@@ -128,22 +136,24 @@ class CartService {
         .orderBy('addedAt', descending: true)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs.map((doc) {
-        final data = doc.data();
-        return CartItem(
-          product: Product(
-            id: doc.id,
-            name: data['name'] ?? '',
-            description: data['description'] ?? '',
-            price: (data['price'] ?? 0.0).toDouble(),
-            imageUrl: data['imageUrl'] ?? '',
-            category: data['category'] ?? '',
-          ),
-          quantity: data['quantity'] ?? 1,
-          addedAt: data['addedAt']?.toDate() ?? DateTime.now(),
-        );
-      }).toList();
-    });
+          return snapshot.docs.map((doc) {
+            final data = doc.data();
+            return CartItem(
+              product: Product(
+                id: doc.id,
+                name: data['name'] ?? '',
+                description: data['description'] ?? '',
+                price: (data['price'] ?? 0.0).toDouble(),
+                imageUrls: List<String>.from(
+                  data['imageUrls'] ?? [],
+                ), // Изменено на imageUrls
+                category: data['category'] ?? '',
+              ),
+              quantity: data['quantity'] ?? 1,
+              addedAt: data['addedAt']?.toDate() ?? DateTime.now(),
+            );
+          }).toList();
+        });
   }
 
   // Получить количество конкретного товара в корзине
@@ -155,7 +165,7 @@ class CartService {
           .collection('cart')
           .doc(productId)
           .get();
-      
+
       if (doc.exists) {
         return doc.data()?['quantity'] ?? 0;
       }
@@ -175,11 +185,11 @@ class CartService {
         .doc(productId)
         .snapshots()
         .map((snapshot) {
-      if (snapshot.exists) {
-        return snapshot.data()?['quantity'] ?? 0;
-      }
-      return 0;
-    });
+          if (snapshot.exists) {
+            return snapshot.data()?['quantity'] ?? 0;
+          }
+          return 0;
+        });
   }
 
   // Очистить всю корзину
@@ -206,7 +216,10 @@ class CartService {
   // Получить общую стоимость корзины
   Future<double> getTotalPrice(String userId) async {
     final cartItems = await getCartItems(userId);
-    return cartItems.fold<double>(0, (total, item) => total + (item.product.price * item.quantity));
+    return cartItems.fold<double>(
+      0,
+      (total, item) => total + (item.product.price * item.quantity),
+    );
   }
 
   // Получить общее количество товаров в корзине

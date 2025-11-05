@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:dress_up/models/product';
+import 'package:dress_up/models/product.dart';
 
 class FavoritesService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -13,15 +13,17 @@ class FavoritesService {
           .collection('favorites')
           .doc(product.id)
           .set({
-        'productId': product.id,
-        'name': product.name,
-        'description': product.description,
-        'price': product.price,
-        'imageUrl': product.imageUrl,
-        'category': product.category,
-        'addedAt': Timestamp.now(),
-      });
-      print('✅ Товар ${product.name} добавлен в избранное пользователя $userId');
+            'productId': product.id,
+            'name': product.name,
+            'description': product.description,
+            'price': product.price,
+            'imageUrls': product.imageUrls, // Изменено на imageUrls
+            'category': product.category,
+            'addedAt': Timestamp.now(),
+          });
+      print(
+        '✅ Товар ${product.name} добавлен в избранное пользователя $userId',
+      );
     } catch (e) {
       print('❌ Ошибка добавления в избранное: $e');
       throw e;
@@ -60,7 +62,9 @@ class FavoritesService {
           name: data['name'] ?? '',
           description: data['description'] ?? '',
           price: (data['price'] ?? 0.0).toDouble(),
-          imageUrl: data['imageUrl'] ?? '',
+          imageUrls: List<String>.from(
+            data['imageUrls'] ?? [],
+          ), // Изменено на imageUrls
           category: data['category'] ?? '',
         );
       }).toList();
@@ -81,18 +85,20 @@ class FavoritesService {
         .collection('favorites')
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs.map((doc) {
-        final data = doc.data();
-        return Product(
-          id: doc.id,
-          name: data['name'] ?? '',
-          description: data['description'] ?? '',
-          price: (data['price'] ?? 0.0).toDouble(),
-          imageUrl: data['imageUrl'] ?? '',
-          category: data['category'] ?? '',
-        );
-      }).toList();
-    });
+          return snapshot.docs.map((doc) {
+            final data = doc.data();
+            return Product(
+              id: doc.id,
+              name: data['name'] ?? '',
+              description: data['description'] ?? '',
+              price: (data['price'] ?? 0.0).toDouble(),
+              imageUrls: List<String>.from(
+                data['imageUrls'] ?? [],
+              ), // Изменено на imageUrls
+              category: data['category'] ?? '',
+            );
+          }).toList();
+        });
   }
 
   // Проверить, находится ли товар в избранном

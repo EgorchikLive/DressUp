@@ -1,4 +1,4 @@
-import 'package:dress_up/models/product';
+import 'package:dress_up/models/product.dart';
 import 'package:dress_up/services/FavoritesService.dart';
 import 'package:flutter/material.dart';
 import '../models/user_model.dart';
