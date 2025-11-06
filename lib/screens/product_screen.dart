@@ -16,7 +16,8 @@ class ProductScreen extends StatefulWidget {
 
 class _ProductScreenState extends State<ProductScreen> {
   final PageController _pageController = PageController();
-  final PageController _imagePageController = PageController(); // Добавляем отдельный контроллер для изображений
+  final PageController _imagePageController =
+      PageController(); // Добавляем отдельный контроллер для изображений
   int _currentPage = 0;
   int _currentImageIndex = 0; // Добавляем переменную для индекса изображения
   final FavoritesService _favoritesService = FavoritesService();
@@ -285,7 +286,8 @@ class _ProductScreenState extends State<ProductScreen> {
                     borderRadius: BorderRadius.circular(16),
                     child: widget.product.imageUrls.length > 1
                         ? PageView.builder(
-                            controller: _imagePageController, // Используем отдельный контроллер
+                            controller:
+                                _imagePageController, // Используем отдельный контроллер
                             itemCount: widget.product.imageUrls.length,
                             itemBuilder: (context, index) {
                               return Image.network(
@@ -306,7 +308,8 @@ class _ProductScreenState extends State<ProductScreen> {
                             },
                             onPageChanged: (index) {
                               setState(() {
-                                _currentImageIndex = index; // Теперь переменная объявлена
+                                _currentImageIndex =
+                                    index; // Теперь переменная объявлена
                               });
                             },
                           )
@@ -331,9 +334,15 @@ class _ProductScreenState extends State<ProductScreen> {
                 ),
 
                 // Индикатор для нескольких изображений
+                // В ProductScreen в методе _buildImagePage обновите индикатор
+                // Индикатор для нескольких изображений
+                // В ProductScreen в методе _buildImagePage обновите индикатор
+                // Индикатор для нескольких изображений
+                // В ProductScreen в методе _buildImagePage обновите индикатор
+                // Индикатор для нескольких изображений
                 if (widget.product.imageUrls.length > 1)
                   Positioned(
-                    bottom: 16,
+                    bottom: 12, // Небольшой отступ от края
                     left: 0,
                     right: 0,
                     child: Row(
@@ -342,19 +351,42 @@ class _ProductScreenState extends State<ProductScreen> {
                         widget.product.imageUrls.length,
                         (index) => Container(
                           margin: EdgeInsets.symmetric(horizontal: 4),
-                          width: 8,
-                          height: 8,
+                          width: _currentImageIndex == index ? 20 : 10,
+                          height: 4,
                           decoration: BoxDecoration(
-                            shape: BoxShape.circle,
+                            borderRadius: BorderRadius.circular(2),
                             color: _currentImageIndex == index
-                                ? Colors.white
-                                : Colors.white.withOpacity(0.5),
+                                ? Colors
+                                      .blue // Активная точка - синяя
+                                : Colors.transparent, // Неактивные - прозрачные
+                            border: Border.all(
+                              color: _currentImageIndex == index
+                                  ? Colors
+                                        .blue // Активная точка без окантовки
+                                  : Colors.white.withOpacity(
+                                      0.9,
+                                    ), // Неактивные с белой окантовкой
+                              width: 1.5,
+                            ),
+                            boxShadow: [
+                              if (_currentImageIndex == index)
+                                BoxShadow(
+                                  color: Colors.blue.withOpacity(0.6),
+                                  blurRadius: 4,
+                                  offset: Offset(0, 1),
+                                ),
+                              if (_currentImageIndex != index)
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.4),
+                                  blurRadius: 2,
+                                  offset: Offset(0, 1),
+                                ),
+                            ],
                           ),
                         ),
                       ),
                     ),
                   ),
-
                 // Счетчик добавлений в корзину
                 StreamBuilder<int>(
                   stream: _cartQuantityStream,

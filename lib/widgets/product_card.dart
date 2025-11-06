@@ -202,224 +202,141 @@ class _ProductCardState extends State<ProductCard> {
       child: InkWell(
         onTap: _navigateToProductScreen,
         borderRadius: BorderRadius.circular(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Stack(
           children: [
-            // Изображение товара с слайдером
-            Expanded(
-              child: Stack(
-                children: [
-                  // Слайдер изображений
-                  Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.vertical(
-                        top: Radius.circular(12),
-                      ),
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.vertical(
-                        top: Radius.circular(12),
-                      ),
-                      child: widget.product.imageUrls.length > 1
-                          ? PageView.builder(
-                              controller: _imagePageController,
-                              itemCount: widget.product.imageUrls.length,
-                              itemBuilder: (context, index) {
-                                return Image.network(
-                                  widget.product.imageUrls[index],
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return Container(
-                                      color: Colors.grey[200],
-                                      child: Icon(
-                                        Icons.image,
-                                        color: Colors.grey[400],
-                                      ),
-                                    );
-                                  },
-                                );
-                              },
-                              onPageChanged: (index) {
-                                setState(() {
-                                  _currentImageIndex = index;
-                                });
-                              },
-                            )
-                          : Image.network(
-                              widget.product.imageUrls.isNotEmpty
-                                  ? widget.product.imageUrls[0]
-                                  : '',
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return Container(
-                                  color: Colors.grey[200],
-                                  child: Icon(
-                                    Icons.image,
-                                    color: Colors.grey[400],
-                                  ),
-                                );
-                              },
-                            ),
-                    ),
-                  ),
-
-                  // Индикатор слайдера (только если больше 1 изображения)
-                  if (widget.product.imageUrls.length > 1)
-                    Positioned(
-                      bottom: 8,
-                      left: 0,
-                      right: 0,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: List.generate(
-                          widget.product.imageUrls.length,
-                          (index) => Container(
-                            margin: EdgeInsets.symmetric(horizontal: 2),
-                            width: 6,
-                            height: 6,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: _currentImageIndex == index
-                                  ? Colors.white
-                                  : Colors.white.withOpacity(0.5),
-                            ),
-                          ),
+            // Основной контент
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Контейнер для изображения и слайдера
+                Stack(
+                  children: [
+                    // Изображение товара
+                    Container(
+                      width: double.infinity,
+                      height: 140, // Фиксированная высота для изображения
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.vertical(
+                          top: Radius.circular(12),
                         ),
                       ),
-                    ),
-
-                  // Кнопка избранного
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.9),
-                        shape: BoxShape.circle,
-                      ),
-                      child: IconButton(
-                        icon: _isLoading
-                            ? SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    Colors.red,
-                                  ),
-                                ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.vertical(
+                          top: Radius.circular(12),
+                        ),
+                        child: widget.product.imageUrls.length > 1
+                            ? PageView.builder(
+                                controller: _imagePageController,
+                                itemCount: widget.product.imageUrls.length,
+                                itemBuilder: (context, index) {
+                                  return Image.network(
+                                    widget.product.imageUrls[index],
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return Container(
+                                        color: Colors.grey[200],
+                                        child: Icon(
+                                          Icons.image,
+                                          color: Colors.grey[400],
+                                        ),
+                                      );
+                                    },
+                                  );
+                                },
+                                onPageChanged: (index) {
+                                  setState(() {
+                                    _currentImageIndex = index;
+                                  });
+                                },
                               )
-                            : StreamBuilder<bool>(
-                                stream: _isFavoriteStream,
-                                builder: (context, snapshot) {
-                                  final isFavorite = snapshot.data ?? false;
-                                  return Icon(
-                                    isFavorite
-                                        ? Icons.favorite
-                                        : Icons.favorite_border,
-                                    color: isFavorite
-                                        ? Colors.red
-                                        : Colors.grey[600],
-                                    size: 20,
+                            : Image.network(
+                                widget.product.imageUrls.isNotEmpty
+                                    ? widget.product.imageUrls[0]
+                                    : '',
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Container(
+                                    color: Colors.grey[200],
+                                    child: Icon(
+                                      Icons.image,
+                                      color: Colors.grey[400],
+                                    ),
                                   );
                                 },
                               ),
-                        onPressed: _toggleFavorite,
-                        padding: EdgeInsets.all(4),
-                        constraints: BoxConstraints(
-                          minWidth: 36,
-                          minHeight: 36,
+                      ),
+                    ),
+
+                    // Кнопка избранного
+                    Positioned(
+                      top: 0,
+                      right: 0,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0),
+                          shape: BoxShape.circle,
+                          // boxShadow: [
+                          //   BoxShadow(
+                          //     color: Colors.black12,
+                          //     blurRadius: 4,
+                          //     offset: Offset(0, 2),
+                          //   ),
+                          // ],
+                        ),
+                        child: IconButton(
+                          icon: _isLoading
+                              ? SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.red,
+                                    ),
+                                  ),
+                                )
+                              : StreamBuilder<bool>(
+                                  stream: _isFavoriteStream,
+                                  builder: (context, snapshot) {
+                                    final isFavorite = snapshot.data ?? false;
+                                    return Icon(
+                                      isFavorite
+                                          ? Icons.favorite
+                                          : Icons.favorite_border,
+                                      color: isFavorite
+                                          ? Colors.red
+                                          : Colors.grey[600],
+                                      size: 20,
+                                    );
+                                  },
+                                ),
+                          onPressed: _toggleFavorite,
+                          padding: EdgeInsets.all(4),
+                          constraints: BoxConstraints(
+                            minWidth: 36,
+                            minHeight: 36,
+                          ),
                         ),
                       ),
                     ),
-                  ),
 
-                  // Счетчик количества в корзине (если больше 0)
-                  StreamBuilder<int>(
-                    stream: _cartQuantityStream,
-                    builder: (context, snapshot) {
-                      final quantity = snapshot.data ?? 0;
-                      if (quantity > 0) {
-                        return Positioned(
-                          top: 8,
-                          left: 8,
-                          child: Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.green,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(
-                              '$quantity',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
+                    // Счетчик количества в корзине (если больше 0)
+                    StreamBuilder<int>(
+                      stream: _cartQuantityStream,
+                      builder: (context, snapshot) {
+                        final quantity = snapshot.data ?? 0;
+                        if (quantity > 0) {
+                          return Positioned(
+                            top: 8,
+                            left: 8,
+                            child: Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
                               ),
-                            ),
-                          ),
-                        );
-                      }
-                      return SizedBox.shrink();
-                    },
-                  ),
-                ],
-              ),
-            ),
-
-            // Информация о товаре
-            Padding(
-              padding: const EdgeInsets.all(12.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Название товара
-                  Text(
-                    widget.product.name,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                      height: 1.2,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-
-                  SizedBox(height: 4),
-
-                  // Описание товара
-                  Text(
-                    widget.product.description,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[600],
-                      height: 1.3,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-
-                  SizedBox(height: 8),
-
-                  // Цена и кнопка корзины
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: StreamBuilder<int>(
-                          stream: _cartQuantityStream,
-                          builder: (context, snapshot) {
-                            final quantity = snapshot.data ?? 0;
-                            return Container(
                               decoration: BoxDecoration(
-                                color: quantity > 0
-                                    ? Colors.green
-                                    : Colors.blue,
-                                borderRadius: BorderRadius.circular(8),
+                                color: Colors.green,
+                                borderRadius: BorderRadius.circular(12),
                                 boxShadow: [
                                   BoxShadow(
                                     color: Colors.black26,
@@ -428,84 +345,185 @@ class _ProductCardState extends State<ProductCard> {
                                   ),
                                 ],
                               ),
-                              child: Material(
-                                color: Colors.transparent,
-                                child: InkWell(
-                                  onTap: _addToCart,
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: Container(
-                                    padding: EdgeInsets.symmetric(vertical: 12),
-                                    child: Center(
-                                      child: _isAddingToCart
-                                          ? SizedBox(
-                                              width: 20,
-                                              height: 20,
-                                              child: CircularProgressIndicator(
-                                                strokeWidth: 2,
-                                                valueColor:
-                                                    AlwaysStoppedAnimation<
-                                                      Color
-                                                    >(Colors.white),
-                                              ),
-                                            )
-                                          : Row(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.center,
-                                              children: [
-                                                Icon(
-                                                  Icons.shopping_cart,
-                                                  color: Colors.white,
-                                                  size: 16,
-                                                ),
-                                                SizedBox(width: 4),
-                                                Text(
-                                                  '\$${widget.product.price.toStringAsFixed(2)}',
-                                                  style: TextStyle(
-                                                    color: Colors.white,
-                                                    fontSize: 16,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
-                                                if (quantity > 0) ...[
-                                                  SizedBox(width: 4),
-                                                  Container(
-                                                    padding:
-                                                        EdgeInsets.symmetric(
-                                                          horizontal: 6,
-                                                          vertical: 2,
-                                                        ),
-                                                    decoration: BoxDecoration(
-                                                      color: Colors.white
-                                                          .withOpacity(0.3),
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            8,
-                                                          ),
-                                                    ),
-                                                    child: Text(
-                                                      '$quantity',
-                                                      style: TextStyle(
-                                                        color: Colors.white,
-                                                        fontSize: 12,
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ],
-                                            ),
-                                    ),
-                                  ),
+                              child: Text(
+                                '$quantity',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
-                            );
-                          },
+                            ),
+                          );
+                        }
+                        return SizedBox.shrink();
+                      },
+                    ),
+                  ],
+                ),
+
+                // Слайдер под картинкой (только если больше 1 изображения)
+                // Или отступ если слайдера нет
+                Container(
+                  height: 12, // Такая же высота как у слайдера
+                  child: widget.product.imageUrls.length > 1
+                      ? Center(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: List.generate(
+                              widget.product.imageUrls.length,
+                              (index) => Container(
+                                margin: EdgeInsets.symmetric(horizontal: 2),
+                                width: _currentImageIndex == index ? 12 : 6,
+                                height: 3,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(1.5),
+                                  color: _currentImageIndex == index
+                                      ? Colors.blue // Активная точка - синяя
+                                      : Colors.grey[400], // Неактивные - серые
+                                ),
+                              ),
+                            ),
+                          ),
+                        )
+                      : SizedBox.shrink(), // Пустой контейнер для отступа
+                ),
+
+                // Информация о товаре
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(
+                        left: 12.0, right: 12.0, bottom: 12.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Название товара - переносится на вторую строку
+                        Text(
+                          widget.product.name,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                            height: 1.2,
+                          ),
+                          maxLines: 2, // Две строки для названия
+                          overflow: TextOverflow
+                              .visible, // Показываем полностью, переносим
+                        ),
+
+                        SizedBox(height: 4),
+
+                        // Описание товара - обрезается троеточием
+                        Text(
+                          widget.product.description,
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.grey[600],
+                            height: 1.3,
+                          ),
+                          maxLines: 2, // Две строки
+                          overflow: TextOverflow
+                              .ellipsis, // Троеточие если не помещается
+                        ),
+
+                        // Гибкий спейсер, который занимает все доступное пространство
+                        Expanded(child: SizedBox.shrink()),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            // Кнопка корзины - всегда внизу карточки
+            Positioned(
+              left: 12,
+              right: 12,
+              bottom: 12, // Фиксированное расстояние от низа
+              child: StreamBuilder<int>(
+                stream: _cartQuantityStream,
+                builder: (context, snapshot) {
+                  final quantity = snapshot.data ?? 0;
+                  return Container(
+                    decoration: BoxDecoration(
+                      color: quantity > 0 ? Colors.green : Colors.blue,
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black26,
+                          blurRadius: 4,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: _addToCart,
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          padding: EdgeInsets.symmetric(vertical: 4),
+                          child: Center(
+                            child: _isAddingToCart
+                                ? SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        Colors.white,
+                                      ),
+                                    ),
+                                  )
+                                : Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.shopping_cart,
+                                        color: Colors.white,
+                                        size: 16,
+                                      ),
+                                      SizedBox(width: 4),
+                                      Text(
+                                        '\$${widget.product.price.toStringAsFixed(2)}',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      if (quantity > 0) ...[
+                                        SizedBox(width: 4),
+                                        Container(
+                                          padding: EdgeInsets.symmetric(
+                                            horizontal: 6,
+                                            vertical: 2,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white.withOpacity(
+                                              0.3,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            '$quantity',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                          ),
                         ),
                       ),
-                    ],
-                  ),
-                ],
+                    ),
+                  );
+                },
               ),
             ),
           ],
