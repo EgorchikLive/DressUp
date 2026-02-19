@@ -18,7 +18,6 @@ import 'models/user_model.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Проверяем, не инициализирован ли Firebase уже
   try {
     if (Firebase.apps.isEmpty) {
       await Firebase.initializeApp(
@@ -68,7 +67,6 @@ class MyApp extends StatelessWidget {
   }
 }
 
-// Остальной код остается без изменений...
 class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});
 

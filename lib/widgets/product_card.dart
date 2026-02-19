@@ -1,4 +1,8 @@
+import 'dart:async';
+
 import 'package:dress_up/models/product.dart';
+import 'package:dress_up/models/user_model.dart';
+import 'package:dress_up/screens/cart_screen.dart';
 import 'package:dress_up/services/FavoritesService.dart';
 import 'package:dress_up/services/cart_service.dart';
 import 'package:flutter/material.dart';
@@ -127,6 +131,7 @@ class _ProductCardState extends State<ProductCard> {
           content: Text('Войдите в аккаунт, чтобы добавлять в корзину'),
           duration: Duration(seconds: 2),
           behavior: SnackBarBehavior.floating,
+          dismissDirection: DismissDirection.horizontal,
         ),
       );
       return;
@@ -143,33 +148,62 @@ class _ProductCardState extends State<ProductCard> {
         widget.product,
       );
 
-      // Получаем актуальное количество после добавления
       final currentQuantity = await cartService.getProductQuantity(
         authProvider.currentUser!.uid,
         widget.product.id,
       );
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('🛒 Товар добавлен в корзину ($currentQuantity шт.)'),
-          duration: Duration(seconds: 2),
-          behavior: SnackBarBehavior.floating,
-          action: SnackBarAction(
-            label: 'Перейти',
-            textColor: Colors.white,
-            onPressed: () {
-              // Навигация в корзину
-            },
-          ),
+      // Создаем SnackBar
+      final snackBar = SnackBar(
+        content: Text('🛒 Товар добавлен в корзину ($currentQuantity шт.)'),
+        duration: Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+        dismissDirection: DismissDirection.horizontal,
+        action: SnackBarAction(
+          label: 'Перейти',
+          textColor: Colors.white,
+          onPressed: () {
+            // Закрываем SnackBar при нажатии на кнопку
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            
+            final user = authProvider.currentUser!;
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => CartScreen(
+                  user: UserModel(
+                    uid: user.uid,
+                    name: user.name,
+                    email: user.email,
+                    createdAt: user.createdAt,
+                    lastLogin: user.lastLogin,
+                  ),
+                ),
+              ),
+            );
+          },
         ),
       );
+
+      // Показываем SnackBar
+      ScaffoldMessenger.of(context).showSnackBar(snackBar);
+
+      // Принудительно закрываем через 2 секунды
+      Timer(Duration(seconds: 2), () {
+        // Проверяем, не закрыт ли уже SnackBar и существует ли контекст
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        }
+      });
+
     } catch (e) {
       print('❌ Ошибка добавления в корзину: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Ошибка при добавлении в корзину: $e'),
           backgroundColor: Colors.red,
-          duration: Duration(seconds: 3),
+          duration: Duration(seconds: 2),
+          dismissDirection: DismissDirection.horizontal,
         ),
       );
     } finally {
